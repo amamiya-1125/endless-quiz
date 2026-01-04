@@ -5,38 +5,47 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card"
 import { Lock, Loader2 } from "lucide-react"
-import { supabase } from "@/lib/supabase" // インポートを忘れずに！
+import { supabase } from "@/lib/supabase"
 import Link from "next/link"
 
 export default function AdminLogin() {
-    const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [errorMsg, setErrorMsg] = useState("")
 
-    // src/app/admin/page.tsx の handleLogin 関数内
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setErrorMsg("")
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
 
-        if (error) {
-            setErrorMsg("ログインに失敗しました。詳細を確認してください。")
+            if (error) {
+                setErrorMsg(error.message)
+                setLoading(false)
+                return
+            }
+
+            if (data?.session) {
+                // 成功を検知！
+                console.log("Login Success:", data.session)
+                // くるくるを止める
+                setLoading(false)
+                // 強制的にダッシュボードへジャンプ（ブラウザの機能を使う）
+                window.location.href = "/admin/dashboard"
+            } else {
+                setErrorMsg("セッションの作成に失敗しました。")
+                setLoading(false)
+            }
+        } catch (err) {
+            console.error(err)
+            setErrorMsg("予期せぬエラーが発生しました。")
             setLoading(false)
-        } else {
-            // --- ここが重要！ ---
-            // 1. 最新の認証情報をブラウザに反映させる
-            await router.refresh() 
-            // 2. 少しだけ待ってから移動する（本番環境の安定のため）
-            setTimeout(() => {
-                router.push("/admin/dashboard")
-            }, 100)
         }
     }
 
@@ -63,8 +72,7 @@ export default function AdminLogin() {
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@example.com"
-                                className="flex h-10 w-full rounded-md border border-subtle/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="flex h-10 w-full rounded-md border border-subtle px-3 py-2 text-sm"
                                 required
                             />
                         </div>
@@ -74,13 +82,12 @@ export default function AdminLogin() {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-subtle/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="flex h-10 w-full rounded-md border border-subtle px-3 py-2 text-sm"
                                 required
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                            {loading ? "ログイン中..." : "ログイン"}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "ログイン"}
                         </Button>
                     </form>
                 </CardContent>
