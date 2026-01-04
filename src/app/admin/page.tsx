@@ -15,23 +15,28 @@ export default function AdminLogin() {
     const [password, setPassword] = useState("")
     const [errorMsg, setErrorMsg] = useState("")
 
+    // src/app/admin/page.tsx の handleLogin 関数内
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setErrorMsg("")
 
-        // --- 本物のログイン処理 (Supabase Auth) ---
         const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
         })
 
         if (error) {
-            setErrorMsg("ログインに失敗しました。メールアドレスまたはパスワードを確認してください。")
+            setErrorMsg("ログインに失敗しました。詳細を確認してください。")
             setLoading(false)
         } else {
-            // 成功したらダッシュボードへ
-            router.push("/admin/dashboard")
+            // --- ここが重要！ ---
+            // 1. 最新の認証情報をブラウザに反映させる
+            await router.refresh() 
+            // 2. 少しだけ待ってから移動する（本番環境の安定のため）
+            setTimeout(() => {
+                router.push("/admin/dashboard")
+            }, 100)
         }
     }
 
