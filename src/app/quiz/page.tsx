@@ -75,11 +75,18 @@ export default function QuizPage() {
                 .map(({ value, originalIndex }) => ({ ...value, originalIndex }))
 
             setChoices(shuffled)
-        } catch (err: any) {
-            console.error("Fetch Error:", err)
-            // 【新機能】エラーの振り分けロジック
-            // ブラウザの fetch エラー（接続拒否）は Paused の可能性が高い
-            if (err.message === 'Failed to fetch' || err.code === 'PGRST301') {
+} catch (err: any) {
+            console.error("Fetch Error Details:", err);
+            
+            // 【判定を強化】
+            // 接続エラー、住所不明、または特定のステータスコードが出たら
+            // すべて「サーバーが寝ている可能性」として扱い、コーヒー画面へ誘導します。
+            const isNetworkError = err.message?.includes('fetch') || 
+                                   err.name === 'TypeError' || 
+                                   err.code === 'PGRST301' ||
+                                   !err.status; // ステータスがない（通信が確立できていない）場合
+
+            if (isNetworkError) {
                 setErrorType("paused")
             } else {
                 setErrorType("other")
