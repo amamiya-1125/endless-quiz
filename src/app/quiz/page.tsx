@@ -114,19 +114,35 @@ export default function QuizPage() {
 
     // --- 表示ロジック（エラー画面の追加） ---
 
-    // 1. サーバーがおやすみ中の表示
+    // 1. サーバーがおやすみ中の表示（改造版）
     if (errorType === "paused") {
+        const handleWakeUp = async () => {
+            setLoading(true) // くるくる開始
+            try {
+                await fetch('/api/wake', { method: 'POST' })
+                alert("サーバーを起こしています。約2分ほどでクイズが始まります。このままお待ちください。")
+                // 1分おきにリロードを試みるなどの処理もできますが、まずはシンプルに
+                setTimeout(() => window.location.reload(), 100000) // 100秒後に自動リロード
+            } catch (err) {
+                alert("起動に失敗しました。管理者へ連絡してください。")
+            } finally {
+                setLoading(false)
+            }
+        }
+
         return (
             <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background text-center">
-                <div className="bg-amber-100 p-6 rounded-full mb-6">
-                    <Coffee className="w-16 h-16 text-amber-600" />
+                <div className="bg-amber-100 p-6 rounded-full mb-6 italic">
+                    <Coffee className="w-16 h-16 text-amber-600 animate-bounce" />
                 </div>
-                <h2 className="text-2xl font-bold mb-4">サーバーがお休み中です</h2>
+                <h2 className="text-2xl font-bold mb-4">サーバーを起こしましょう！</h2>
                 <p className="text-subtle mb-8 max-w-sm">
-                    しばらく使われていなかったため、サーバーが眠っています。管理者がボタンを押すと3分ほどで起きますので、少し待ってから「やり直す」を押してください。
+                    サーバーがまだ寝ています。<br />
+                    下のボタンを押すと、2分くらいで起きますよ。
                 </p>
-                <Button size="xl" onClick={() => window.location.reload()} className="px-12">
-                    やり直す
+                <Button size="xl" onClick={handleWakeUp} disabled={loading} className="px-12">
+                    {loading ? <Loader2 className="animate-spin mr-2" /> : null}
+                    サーバーを起こす
                 </Button>
             </div>
         )
