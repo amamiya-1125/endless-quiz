@@ -6,11 +6,10 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card"
 import { supabase } from "@/lib/supabase"
-import { Loader2, CheckCircle2, XCircle, ArrowRight, Flag } from "lucide-react"
+import { Loader2, CheckCircle2, XCircle, ArrowRight, Flag, Trophy, Coffee, AlertCircle } from "lucide-react" // アイコン追加
 import type { Database } from "@/types/supabase"
 import { cn } from "@/lib/utils"
 
-// 型定義
 type Quiz = Database['public']['Tables']['quizzes']['Row']
 
 interface Choice {
@@ -22,19 +21,23 @@ interface Choice {
 export default function QuizPage() {
     const router = useRouter()
 
-    // --- ステート管理 ---
     const [stats, setStats] = useState({ correct: 0, total: 0 })
     const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null)
     const [choices, setChoices] = useState<Choice[]>([])
     const [selectedChoiceIndex, setSelectedChoiceIndex] = useState<number | null>(null)
     const [isAnswered, setIsAnswered] = useState(false)
     const [loading, setLoading] = useState(true)
+    const [playedQuizIds, setPlayedQuizIds] = useState<string[]>([])
+    const [isOutOfQuestions, setIsOutOfQuestions] = useState(false)
+    
+    // 【新機能】エラーの種類を管理するステート
+    const [errorType, setErrorType] = useState<"none" | "paused" | "other">("none")
 
-    // --- クイズ取得 (Supabase) ---
     const fetchNewQuestion = useCallback(async () => {
         setLoading(true)
         setIsAnswered(false)
         setSelectedChoiceIndex(null)
+        setErrorType("none") // リセット
 
         try {
             const { data, error } = await supabase
@@ -45,9 +48,19 @@ export default function QuizPage() {
             if (error) throw error
             if (!data || data.length === 0) throw new Error("No quizzes found")
 
-            const randomIndex = Math.floor(Math.random() * data.length)
-            const quiz = data[randomIndex] as Quiz
+            const availableQuizzes = (data as Quiz[]).filter(q => !playedQuizIds.includes(q.id))
+
+            if (availableQuizzes.length === 0) {
+                setIsOutOfQuestions(true)
+                setLoading(false)
+                return
+            }
+
+            const randomIndex = Math.floor(Math.random() * availableQuizzes.length)
+            const quiz = availableQuizzes[randomIndex] as Quiz
+            
             setCurrentQuiz(quiz)
+            setPlayedQuizIds(prev => [...prev, quiz.id])
 
             const rawChoices = [
                 { text: quiz.choice_1, isCorrect: true },
@@ -62,19 +75,25 @@ export default function QuizPage() {
                 .map(({ value, originalIndex }) => ({ ...value, originalIndex }))
 
             setChoices(shuffled)
-        } catch (err) {
+        } catch (err: any) {
             console.error("Fetch Error:", err)
+            // 【新機能】エラーの振り分けロジック
+            // ブラウザの fetch エラー（接続拒否）は Paused の可能性が高い
+            if (err.message === 'Failed to fetch' || err.code === 'PGRST301') {
+                setErrorType("paused")
+            } else {
+                setErrorType("other")
+            }
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [playedQuizIds])
 
-    // 初回フェッチ
     useEffect(() => {
         fetchNewQuestion()
-    }, [fetchNewQuestion])
+    }, [])
 
-    // --- ハンドラー ---
+    // --- 省略（handleAnswer, handleFinish などのロジックは前回と同じ） ---
     const handleAnswer = () => {
         if (selectedChoiceIndex === null || isAnswered) return
         setIsAnswered(true)
@@ -93,7 +112,60 @@ export default function QuizPage() {
         router.push(`/result?${query}`)
     }
 
-    // --- 表示ロジック ---
+    // --- 表示ロジック（エラー画面の追加） ---
+
+    // 1. サーバーがおやすみ中の表示
+    if (errorType === "paused") {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background text-center">
+                <div className="bg-amber-100 p-6 rounded-full mb-6">
+                    <Coffee className="w-16 h-16 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-bold mb-4">サーバーがお休み中です</h2>
+                <p className="text-subtle mb-8 max-w-sm">
+                    しばらく使われていなかったため、サーバーが眠っています。管理者がボタンを押すと3分ほどで起きますので、少し待ってから「やり直す」を押してください。
+                </p>
+                <Button size="xl" onClick={() => window.location.reload()} className="px-12">
+                    やり直す
+                </Button>
+            </div>
+        )
+    }
+
+    // 2. その他のエラー表示
+    if (errorType === "other") {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background text-center">
+                <div className="bg-red-100 p-6 rounded-full mb-6">
+                    <AlertCircle className="w-16 h-16 text-red-600" />
+                </div>
+                <h2 className="text-2xl font-bold mb-4">通信エラーが発生しました</h2>
+                <p className="text-subtle mb-8">
+                    インターネットの接続を確認して、もう一度試してみてください。
+                </p>
+                <Button size="xl" onClick={() => window.location.reload()} className="px-12">
+                    もう一度試す
+                </Button>
+            </div>
+        )
+    }
+
+    // 3. 全問クリア表示
+    if (isOutOfQuestions) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-center">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="mb-6 bg-primary/10 p-6 rounded-full">
+                    <Trophy className="w-16 h-16 text-primary" />
+                </motion.div>
+                <h2 className="text-2xl font-bold mb-2">全問クリア！</h2>
+                <p className="text-subtle mb-8">現在公開されているすべての問題を解き終えました。</p>
+                <Button size="xl" onClick={handleFinish} className="px-12 shadow-lg shadow-primary/20">
+                    結果を見る
+                </Button>
+            </div>
+        )
+    }
+
     if (loading && !currentQuiz) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
@@ -108,7 +180,7 @@ export default function QuizPage() {
         <div className="min-h-screen flex flex-col items-center p-4 md:p-8 bg-background">
             <div className="w-full max-w-2xl flex justify-between items-center mb-6 text-subtle font-medium">
                 <div>問 {stats.total + 1}</div>
-                <div>Scope: {stats.correct} / {stats.total}</div>
+                <div>スコア: {stats.correct} / {stats.total}</div>
                 <Button variant="ghost" size="sm" onClick={handleFinish} className="text-subtle hover:text-foreground">
                     <Flag className="w-4 h-4 mr-2" />
                     終了
@@ -170,7 +242,6 @@ export default function QuizPage() {
                         </CardContent>
 
                         <CardFooter className="flex flex-col gap-4 pt-4 border-t border-subtle/10">
-                            {/* 回答後の表示 */}
                             {isAnswered && (
                                 <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                     <div className="bg-subtle/5 p-4 rounded-xl">
@@ -187,8 +258,6 @@ export default function QuizPage() {
                                     </div>
                                 </div>
                             )}
-
-                            {/* 回答前のボタン */}
                             {!isAnswered && (
                                 <Button
                                     size="lg"
