@@ -9,7 +9,7 @@
 ---
 
 ## 🔗 Links
-- **Live Demo:** [https://endless-quiz.vercel.app](https://endless-quiz.vercel.app)
+- **Live Demo:** [https://endless-quiz-portfolio.vercel.app](https://endless-quiz-portfolio.vercel.app)
 - **Source Code:** [https://github.com/amamiya-1125/endless-quiz](https://github.com/amamiya-1125/endless-quiz)
 
 ---
