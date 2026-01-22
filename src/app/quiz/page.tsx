@@ -122,37 +122,53 @@ export default function QuizPage() {
     // --- 表示ロジック（エラー画面の追加） ---
 
     // 1. サーバーがおやすみ中の表示（改造版）
-    if (errorType === "paused") {
+if (errorType === "paused") {
         const handleWakeUp = async () => {
-            setLoading(true) // くるくる開始
+            setLoading(true);
             try {
-                await fetch('/api/wake', { method: 'POST' })
-                alert("サーバーを起こしています。約2分ほどでクイズが始まります。このままお待ちください。")
-                // 1分おきにリロードを試みるなどの処理もできますが、まずはシンプルに
-                setTimeout(() => window.location.reload(), 100000) // 100秒後に自動リロード
+                await fetch('/api/wake', { method: 'POST' });
+                // 通知は出さず、画面上の表示を切り替えることで「進行中」を伝えます
             } catch (err) {
-                alert("起動に失敗しました。管理者へ連絡してください。")
-            } finally {
-                setLoading(false)
+                alert("うまく起こせませんでした。少し時間をおいて試してください。");
+                setLoading(false);
             }
-        }
+        };
 
         return (
             <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background text-center">
-                <div className="bg-amber-100 p-6 rounded-full mb-6 italic">
-                    <Coffee className="w-16 h-16 text-amber-600 animate-bounce" />
+                <div className="bg-amber-100 p-6 rounded-full mb-6">
+                    <Coffee className={cn("w-16 h-16 text-amber-600", loading && "animate-bounce")} />
                 </div>
-                <h2 className="text-2xl font-bold mb-4">サーバーを起こしましょう！</h2>
+                
+                <h2 className="text-2xl font-bold mb-4">
+                    {loading ? "サーバーを起こしています..." : "サーバーがまだ寝ています"}
+                </h2>
+                
                 <p className="text-subtle mb-8 max-w-sm">
-                    サーバーがまだ寝ています。<br />
-                    下のボタンを押すと、2分くらいで起きますよ。
+                    {loading 
+                        ? "2分くらいで起きるから、ちょっと待っててね。準備ができたら下のボタンを押してね。" 
+                        : "下のボタンを1回だけ押してね。2分くらいでクイズができるようになるよ。"}
                 </p>
-                <Button size="xl" onClick={handleWakeUp} disabled={loading} className="px-12">
-                    {loading ? <Loader2 className="animate-spin mr-2" /> : null}
-                    サーバーを起こす
-                </Button>
+
+                <div className="flex flex-col gap-4 w-full max-w-xs">
+                    {!loading ? (
+                        <Button size="xl" onClick={handleWakeUp} className="w-full shadow-lg shadow-amber-200">
+                            サーバーを起こす
+                        </Button>
+                    ) : (
+                        // 起こしている最中に表示される「確認（リロード）」ボタン
+                        <Button 
+                            size="xl" 
+                            variant="secondary" 
+                            onClick={() => window.location.reload()} 
+                            className="w-full border-2 border-primary"
+                        >
+                            準備ができたか確認する
+                        </Button>
+                    )}
+                </div>
             </div>
-        )
+        );
     }
 
     // 2. その他のエラー表示
